@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee"
+         xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+         id="WebApp_ID" version="2.5">
+
+  <display-name>chatonline</display-name>
+
+  <context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>classpath:spring-*.xml</param-value>
+  </context-param>
+
+  <!--通过ContextLoaderListener加载contextConfigLocation指定的Spring配置文件-->
+  <listener>
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+  </listener>
+
+  <filter>
+    <filter-name>characterEncodingFilter</filter-name>
+    <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+    <init-param>
+      <param-name>encoding</param-name>
+      <param-value>UTF-8</param-value>
+    </init-param>
+  </filter>
+  <filter-mapping>
+    <filter-name>characterEncodingFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <!-- shiro过滤器，DelegatingFilterProxy通过代理模式将spring容器中的bean和filter关联起来 -->
+  <filter>
+    <filter-name>shiroFilter</filter-name>
+    <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+    <!-- 设置true由servlet容器控制filter的生命周期 -->
+    <init-param>
+      <param-name>targetFilterLifecycle</param-name>
+      <param-value>true</param-value>
+    </init-param>
+    <!-- 设置spring容器filter的bean id，如果不设置则找与filter-name一致的bean-->
+    <init-param>
+      <param-name>targetBeanName</param-name>
+      <param-value>shiroFilter</param-value>
+    </init-param>
+  </filter>
+  <filter-mapping>
+    <filter-name>shiroFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <!-- 验证码过滤器需要放到Shiro之后，因为Shiro将包装HttpSession 如果不，可能造成两次的sesison id 不一样 -->
+  <filter>
+    <filter-name>captchaFilter</filter-name>
+    <filter-class>com.meng.chatonline.security.captcha.JCaptchaFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>captchaFilter</filter-name>
+    <url-pattern>/captcha.jpg</url-pattern>
+  </filter-mapping>
+
+    <servlet>
+        <servlet-name>dispatcherServlet</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <init-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>classpath:spring-mvc.xml</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>dispatcherServlet</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+
+  <!--处理InvalidSessionException异常-->
+  <error-page>
+    <exception-type>org.apache.shiro.session.InvalidSessionException</exception-type>
+    <location>/invalidSession</location>
+  </error-page>
+  <!--<error-page>-->
+    <!--<error-code>404</error-code>-->
+    <!--<location>/404</location>-->
+  <!--</error-page>-->
+  <!-- 表示当系统发生500也就是操作异常错误的时候 -->
+  <!--<error-page>-->
+    <!--<error-code>500</error-code>-->
+    <!--<location>/WEB-INF/views/error/500.html</location>-->
+  <!--</error-page>-->
+</web-app>
