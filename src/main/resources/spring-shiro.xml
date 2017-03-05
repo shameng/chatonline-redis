@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:context="http://www.springframework.org/schema/context"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
-
-    <context:property-placeholder location="classpath:db.properties"></context:property-placeholder>
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
     <!--与web.xml文件里的shiroFilter过滤器里的targetBeanName相对应-->
     <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
@@ -52,7 +49,7 @@
     <!-- securityManager安全管理器 -->
     <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
         <property name="realm" ref="realm"></property>
-        <property name="cacheManager" ref="shiroCacheManager"></property>
+        <property name="cacheManager" ref="shiroRedisCacheManager"></property>
         <property name="sessionManager" ref="shiroSessionManager"></property>
         <property name="rememberMeManager" ref="cookieRememberMeManager"></property>
     </bean>
@@ -70,7 +67,7 @@
         <property name="hashAlgorithmName" value="${password.algorithmName}"></property>
         <property name="hashIterations" value="${password.hashIterations}"></property>
 
-        <property name="cacheManager" ref="shiroCacheManager"></property>
+        <property name="cacheManager" ref="shiroRedisCacheManager"></property>
         <property name="cacheName" value="passwordRetryCache"></property>
         <!--最多重复错误登陆次数-->
         <property name="maxRetryCount" value="5"></property>
@@ -93,18 +90,31 @@
     <!--自定义注销退出过滤器，用于用户注销时向其他用户广播注销消息-->
     <bean id="logoutFilter" class="com.meng.chatonline.security.filter.MyLogoutFilter"></bean>
 
-    <!--缓存管理器-->
-    <bean id="shiroCacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
-        <property name="cacheManager" ref="cacheManagerFactory"></property>
-        <!--<property name="cacheManagerConfigFile" value="classpath:ehcache.xml"></property>-->
+    <!--redis缓存管理器-->
+    <bean id="shiroRedisCacheManager" class="com.meng.chatonline.security.cache.ShiroRedisCacheManager">
+        <property name="redisManager" ref="redisManager"></property>
+    </bean>
+    <bean id="redisManager" class="com.meng.chatonline.security.cache.RedisManager">
+        <property name="jedisPool" ref="jedisPool"></property>
     </bean>
 
     <!-- 用于生成会话ID，默认就是JavaUuidSessionIdGenerator，使用java.util.UUID生成。 -->
     <bean id="sessionIdGenerator" class="org.apache.shiro.session.mgt.eis.JavaUuidSessionIdGenerator"/>
-    <bean id="sessionDAO" class="org.apache.shiro.session.mgt.eis.EnterpriseCacheSessionDAO">
-        <property name="sessionIdGenerator" ref="sessionIdGenerator"/>
-        <!--设置Session缓存名字，默认就是shiro-activeSessionCache-->
+    <!--<bean id="sessionDAO" class="org.apache.shiro.session.mgt.eis.EnterpriseCacheSessionDAO">-->
+        <!--<property name="sessionIdGenerator" ref="sessionIdGenerator"/>-->
+        <!--&lt;!&ndash;设置Session缓存名字，默认就是shiro-activeSessionCache&ndash;&gt;-->
+        <!--<property name="activeSessionsCacheName" value="shiro-activeSessionCache"></property>-->
+    <!--</bean>-->
+    <!--自定义SessionDAO，由redis来管理session缓存-->
+    <bean id="sessionDAO" class="com.meng.chatonline.security.cache.session.RedisShiroSessionDAO">
+        <property name="sessionIdGenerator" ref="sessionIdGenerator"></property>
+        <property name="shiroSessionRepository" ref="shiroSessionRepository"></property>
+    </bean>
+    <bean id="shiroSessionRepository" class="com.meng.chatonline.security.cache.session.RedisShiroSessionRepository">
+        <property name="redisManager" ref="redisManager"></property>
         <property name="activeSessionsCacheName" value="shiro-activeSessionCache"></property>
+        <!--session缓存过期时间，单位为秒-->
+        <property name="expireTime" value="1800"></property>
     </bean>
 
     <!-- 会话验证调度器 -->
@@ -180,8 +190,8 @@
         <property name="kickoutAfter" value="false"></property>
         <property name="sessionManager" ref="shiroSessionManager"></property>
         <property name="kickoutUrl" value="/login?kickout=1"></property>
-        <property name="maxSession" value="1"></property>
-        <property name="cacheManager" ref="shiroCacheManager"></property>
+        <property name="maxSession" value="2"></property>
+        <property name="cacheManager" ref="shiroRedisCacheManager"></property>
         <property name="cacheName" value="userSessionsCache"></property>
     </bean>
 

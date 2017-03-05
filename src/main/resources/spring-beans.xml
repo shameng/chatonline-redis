@@ -3,11 +3,9 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns:context="http://www.springframework.org/schema/context"
        xmlns:tx="http://www.springframework.org/schema/tx"
-       xmlns:cache="http://www.springframework.org/schema/cache"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
-       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
-       http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd">
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
 
     <context:component-scan base-package="com.meng.chatonline">
         <context:exclude-filter type="annotation"
@@ -16,7 +14,17 @@
                  expression="org.springframework.web.bind.annotation.ControllerAdvice"></context:exclude-filter>
     </context:component-scan>
 
-    <context:property-placeholder location="classpath:db.properties"/>
+    <!--在spring的xml配置文件中当有多个*.properties文件需要加载时,应该这样使用使用,以为两种形式均可-->
+    <context:property-placeholder location="classpath:db.properties,classpath:redis.properties" ignore-unresolvable="true" />
+    <!--<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">-->
+        <!--<property name="locations">-->
+            <!--<list>-->
+                <!--<value>classpath:db.properties</value>-->
+                <!--<value>classpath:redis.properties</value>-->
+            <!--</list>-->
+        <!--</property>-->
+        <!--<property name="ignoreUnresolvablePlaceholders" value="true" />-->
+    <!--</bean>-->
 
     <!--配置数据源-->
     <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
@@ -67,19 +75,6 @@
 		-->
         <!--<property name="sharedCacheMode" value="ENABLE_SELECTIVE"></property>-->
     </bean>
-
-    <!--启用缓存注解功能，这个是必须的，否则注解不会生效，另外，该注解一定要声明在spring主配置文件中才会生效-->
-    <cache:annotation-driven cache-manager="cacheManager" key-generator="keyGenerator"/>
-    <!--cacheManager工厂类，指定ehcache.xml的位置-->
-    <bean id="cacheManagerFactory" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
-        <property name="configLocation" value="classpath:ehcache.xml"/>
-    </bean>
-    <!-- 声明cacheManager -->
-    <bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager">
-        <property name="cacheManager" ref="cacheManagerFactory"/>
-    </bean>
-    <!--缓存key生成器-->
-    <bean id="keyGenerator" class="com.meng.chatonline.cache.MyKeyGenerator"></bean>
 
     <!--配置事务管理器-->
     <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">

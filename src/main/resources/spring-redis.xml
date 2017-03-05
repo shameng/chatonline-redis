@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd">
+
+    <bean id="connectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory"
+          p:hostName="${redis.host}" p:port="${redis.port}" p:password="${redis.password}"
+          p:timeout="${redis.timeout}" p:poolConfig-ref="poolConfig">
+    </bean>
+
+    <bean id="poolConfig" class="redis.clients.jedis.JedisPoolConfig">
+        <property name="maxIdle" value="${redis.pool.maxIdle}"></property>
+        <property name="maxTotal" value="${redis.pool.maxTotal}"></property>
+        <property name="maxWaitMillis" value="${redis.pool.maxWaitMillis}"></property>
+        <property name="minIdle" value="${redis.pool.minIdle}"></property>
+        <property name="testOnBorrow" value="${redis.pool.testOnBorrow}"></property>
+        <property name="testOnReturn" value="${redis.pool.testOnReturn}"></property>
+    </bean>
+
+    <bean id="jedisPool" class="redis.clients.jedis.JedisPool">
+        <constructor-arg index="0" ref="poolConfig" />
+        <constructor-arg index="2" value="${redis.port}"  name="port" type="int"/>
+        <constructor-arg index="3" value="${redis.timeout}"  name="timeout" type="int"/>
+        <constructor-arg index="1" value="${redis.host}" name="host" type="java.lang.String"/>
+        <!--<constructor-arg index="4" value="${redis.password}" name="password" type="java.lang.String"/>-->
+    </bean>
+
+    <bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+        <property name="connectionFactory" ref="connectionFactory"></property>
+
+        <property name="keySerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer" />
+        </property>
+    </bean>
+
+    <bean id="cacheManager" class="org.springframework.data.redis.cache.RedisCacheManager">
+        <constructor-arg ref="redisTemplate"/>
+        <property name="defaultExpiration" value="${redis.cache.defaultExpiration}"></property>
+    </bean>
+
+    <!--缓存key生成器-->
+    <bean id="keyGenerator" class="com.meng.chatonline.cache.MyKeyGenerator"></bean>
+
+    <!--启用缓存注解功能，这个是必须的，否则注解不会生效，另外，该注解一定要声明在spring主配置文件中才会生效-->
+    <cache:annotation-driven cache-manager="cacheManager" key-generator="keyGenerator"></cache:annotation-driven>
+</beans>

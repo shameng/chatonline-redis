@@ -1,7 +1,5 @@
 package com.meng.chatonline.security;
 
-import com.meng.chatonline.exception.LoginException;
-import com.meng.chatonline.model.ActiveUser;
 import org.apache.shiro.authc.AuthenticationInfo;
 import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.authc.ExcessiveAttemptsException;

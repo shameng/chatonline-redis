@@ -1,6 +1,7 @@
 package com.meng.chatonline.security.filter;
 
 import com.meng.chatonline.model.ActiveUser;
+import com.meng.chatonline.model.User;
 import org.apache.shiro.cache.Cache;
 import org.apache.shiro.cache.CacheManager;
 import org.apache.shiro.session.Session;
@@ -12,6 +13,7 @@ import org.apache.shiro.web.util.WebUtils;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -42,8 +44,7 @@ public class KickoutSessionControlFilter extends AccessControlFilter
         return false;
     }
 
-    protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws Exception
-    {
+    protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws IOException {
         Subject subject = getSubject(request, response);
         //如果没有登录，直接进行之后的流程
         if (!subject.isAuthenticated() && !subject.isRemembered())
@@ -53,18 +54,30 @@ public class KickoutSessionControlFilter extends AccessControlFilter
         ActiveUser user = (ActiveUser) subject.getPrincipal();
         Serializable sessionId = session.getId();
 
-        Cache<ActiveUser, Deque<Serializable>> cache = getCache();
+        //是否已经被踢出登陆
+        boolean isKickout = session.getAttribute("kickout") != null;
+        //如果被踢出了，直接退出，重定向到踢出后的地址
+        if (isKickout)
+        {
+            kickout(subject, request, response);
+            //不执行后面的拦截器了
+            return false;
+        }
+
+        Cache<String, Deque<Serializable>> cache = getCache();
         if (cache != null)
         {
-            Deque<Serializable> deque = cache.get(user);
+            Deque<Serializable> deque = cache.get(buildCacheKey(user));
             if (deque == null)
             {
                 deque = new LinkedList<Serializable>();
-                cache.put(user, deque);
             }
 
-            //如果队列里没有此sessionId，且用户没有被踢出，则放入队列
-            if (!deque.contains(sessionId) && session.getAttribute("kickout") == null)
+            //如果还是本用户，例如进行页面刷新操作，则直接返回true
+            if (deque.contains(sessionId))
+                return true;
+            //如果队列里没有此sessionId，则放入队列
+            else
                 deque.push(sessionId);
 
             //如果队列里的sessionId书超出最大会话数，则开始踢人
@@ -86,27 +99,36 @@ public class KickoutSessionControlFilter extends AccessControlFilter
                     System.out.println(user + "被踢出登陆，需重新登陆");
                 }
             }
-        }
 
-        //如果被踢出了，直接退出，重定向到踢出后的地址
-        if (session.getAttribute("kickout") != null)
-        {
-            //会话被踢出
-            subject.logout();
-
-            //保存当前地址并重定向到登录界面
-            saveRequest(request);
-            WebUtils.issueRedirect(request, response, kickoutUrl);
-            //不执行后面的拦截器了
-            return false;
+            cache.put(buildCacheKey(user), deque);
         }
 
         //继续执行后面的拦截器
         return true;
     }
 
+    /**
+     * 踢出登陆
+     * @param subject
+     * @param request
+     * @param response
+     * @throws IOException
+     */
+    private void kickout(Subject subject, ServletRequest request, ServletResponse response) throws IOException {
+        //会话被踢出
+        subject.logout();
+
+        //保存当前地址并重定向到登录界面
+        saveRequest(request);
+        WebUtils.issueRedirect(request, response, kickoutUrl);
+    }
+
+    private String buildCacheKey(User user) {
+        return "user_id(" + user.getId() + ")";
+    }
+
     //获得缓存区
-    public Cache<ActiveUser, Deque<Serializable>> getCache()
+    public Cache<String, Deque<Serializable>> getCache()
     {
         return cacheManager.getCache(getCacheName());
     }
